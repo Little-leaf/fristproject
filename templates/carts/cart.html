@@ -1,0 +1,214 @@
+{%extends 'commen/base.html'%}
+{% load staticfiles %}
+{% block header_js %}
+    <script src="{% static 'js/jquery-1.12.4.min.js' %}"></script>
+    <script>
+
+        //同步后端的数据
+        function update_num(obj) {
+            num = obj.parents('.cart_list_td').find('.num_show').val();
+            id = obj.parents('.cart_list_td').find('input:checkbox').val();
+{#            alert(num);#}
+{#            alert(id);#}
+            flag = false;
+            $.ajax({
+                'url':'{% url 'carts:edit_goods_num' %}',
+                'data':{'id':id, 'num':num},
+                'type':'get',
+                'async': false,
+                'success':function (data) {
+                    if(data.ret!=0){
+                        flag = true;
+                    }
+                }
+            });
+{#            alert(flag);#}
+            if (flag){
+            update_goods_infomation(obj)}
+        }
+        //更新商品的价格
+        function update_goods_infomation(obj) {
+            num = parseInt(obj.parents('.cart_list_td').find('.num_show').val());
+            price = parseFloat(obj.parents('.cart_list_td').find('.col05').html());
+
+{#            alert(num);#}
+{#            alert(price);#}
+            total = num*price;
+
+            obj.parents('.cart_list_td').find('.col07').html(total.toFixed(2)+'元');
+
+            //更新商品的总价格和数量
+              total_num = 0;
+              total_money = 0;
+
+
+
+            $('.cart_list_td').each(function () {
+                if(!$(this).find('input:checkbox').prop('checked')){
+                    return true
+                }
+                num = parseInt($(this).find('.num_show').val());
+                money = parseInt($(this).find('.col07').html());
+                total_num += num;
+                total_money += money;
+{#                alert(total_num);#}
+{#                alert(total_money);#}
+{##}
+
+
+            });
+            $('.settlements .col03').find('b').html(total_num);
+            $('.settlements .col03').find('em').html(total_money.toFixed(2)+'元　');
+            $('.total_count').find('em').html(total_num)
+
+
+
+        };
+        //整体控制
+         $(function () {
+             //点击＋
+             $('.add').click(function () {
+                 num = $(this).parents('.cart_list_td').find('.num_show').val();
+                 num = parseInt(num)+1;
+                 $(this).parents('.cart_list_td').find('.num_show').val(num);
+                 update_num($(this));
+
+             });
+             //点击－
+              $('.minus').click(function () {
+                 num = $(this).parents('.cart_list_td').find('.num_show').val();
+                 num = parseInt(num)-1;
+                 if(num<1){
+                     num =1
+                 }
+                 $(this).parents('.cart_list_td').find('.num_show').val(num);
+                 update_num($(this));
+
+
+
+
+             });
+              //当num_show的值修改时
+             $('.num_show').change(function () {
+                 update_num($(this))
+
+             });
+             //删除商品
+             $('.col08').click(function () {
+                id = $(this).parents('.cart_list_td').find('input:checkbox').val();
+
+                flag = false;
+                $.ajax({
+                    'url':'{% url 'carts:remove_goods' %}',
+                    'data':{'id':id},
+                    'type':'get',
+                    'async': false,
+                    'success':function (data) {
+                        if(data.ret!=0){
+                            //alert(data.ret);
+                            flag = true;
+                            //alert(flag)
+                        }
+                    }
+
+                });
+                //alert(flag);
+                 if(flag){
+{#                     console(flag);#}
+{#                     console($(this).parents('cart_list_td'));#}
+                    $(this).parents('.cart_list_td').remove();
+                     update_goods_infomation($(this))
+                 };
+
+             });
+
+
+             //表单提交
+             $('.settlements').find('.col04').click(function () {
+                 flag = false;
+                 $('.cart_list_td').each(function () {
+                     if($(this).find('input:checkbox').prop('checked')){
+                        flag = true;
+                        return false; //退出循环
+                     };
+
+                 });
+                 if(flag){
+                     $('#order').submit()
+                 }
+                 else {
+                     alert('未选中商品')
+                 }
+             });
+
+             //单选框事件
+             $('input:checkbox').change(function () {
+                 update_goods_infomation($(this))
+             });
+             //多选
+             $('.settlements input:checkbox').click(function () {
+                 if($(this).prop('checked')){
+                     $('.cart_list_td input:checkbox').prop('checked', true)
+
+                 }
+                 else{
+                     $('.cart_list_td input:checkbox').prop('checked', false)
+
+                 }
+             })
+
+         })
+
+    </script>
+{% endblock header_js %}
+{%block body%}
+    {% include 'commen/status.html' %}
+
+
+	<div class="search_bar clearfix">
+		<a href="{% url 'goods:index' %}" class="logo fl"><img src="{% static 'images/logo.png' %}"></a>
+		<div class="sub_page_name fl">|&nbsp;&nbsp;&nbsp;&nbsp;购物车</div>
+		<div class="search_con fr">
+			<input type="text" class="input_text fl" name="" placeholder="搜索商品">
+			<input type="button" class="input_btn fr" name="" value="搜索">
+		</div>		
+	</div>
+
+	<div class="total_count">全部商品<em>{{ carts.total }}</em>件</div>
+	<ul class="cart_list_th clearfix">
+		<li class="col01">商品名称</li>
+		<li class="col02">商品单位</li>
+		<li class="col03">商品价格</li>
+		<li class="col04">数量</li>
+		<li class="col05">小计</li>
+		<li class="col06">操作</li>
+	</ul>
+    <form id="order" method="post" action="{% url 'order:index' %}">
+    {% for cart in carts %}
+        {% csrf_token %}
+	<ul class="cart_list_td clearfix">
+		<li class="col01"><input type="checkbox" value="{{ cart.cart_good.id }}" name="goods_id" checked></li>
+		<li class="col02"><img src="{% static cart.cart_good.goods_image %}"></li>
+		<li class="col03">{{ cart.cart_good.goods_name }}<br><em>{{ cart.cart_good.goods_price }}元/500g</em></li>
+		<li class="col04">500g</li>
+		<li class="col05">{{ cart.cart_good.goods_price }}元</li>
+		<li class="col06">
+			<div class="num_add">
+				<a href="javascript:;" class="add fl">+</a>
+				<input type="text" class="num_show fl" value="{{ cart.cart_amount }}">
+				<a href="javascript:;" class="minus fl">-</a>	
+			</div>
+		</li>
+		<li class="col07">{{ cart.single_money }}元</li>
+		<li class="col08"><a href="javascript:;">删除</a></li>
+	</ul>
+	{% endfor %}
+    </form>
+
+	<ul class="settlements">
+		<li class="col01"><input type="checkbox" name="" checked=""></li>
+		<li class="col02">全选</li>
+		<li class="col03">合计(不含运费)：<span>¥</span><em>{{ carts.money }}</em><br>共计<b>{{ carts.total }}</b>件商品</li>
+		<li class="col04" ><a href="#">去结算</a></li>
+	</ul>
+{%endblock body%}
